@@ -222,7 +222,7 @@ CMP_TESTS = (
     ('#', '<', 'ST'),
     ('T', '>', 'ST'),
     ('PH', '>', 'TH'),
-    ('SH', '<', 'STH'),
+    ('SH', '>', 'STH'),
     ('ST', '<=', 'STK'),
     ('STK', '<=', 'STK'),
     ('STK', '==', 'STK'),
@@ -230,6 +230,8 @@ CMP_TESTS = (
     ('-PB', '>', 'AOE'),
     ('R-R', '>=', 'R-F'),
     ('APBD', '>=', 'APBD'),
+    ('ST-TS', '<', 'ST-TZ'),
+    ('ST-TSZ', '<', 'ST-TZ'),
 )
 
 @pytest.mark.parametrize('steno, op, other_steno', CMP_TESTS)
@@ -318,4 +320,3 @@ def test_no_numbers_system():
         ('A-', 'O-', '*', '-E', '-U')
     )
     s1 = Stroke(23)
-

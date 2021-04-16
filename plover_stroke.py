@@ -32,12 +32,16 @@ def popcount(x):
 def cmp_strokes(s1, s2):
     si1 = int(s1)
     si2 = int(s2)
-    m = si1 ^ si2
-    si1 = (si1 & m) or si1
-    lsb1 = si1 & -si1
-    si2 = (si2 & m) or si2
-    lsb2 = si2 & -si2
-    return lsb1 - lsb2
+    while si1 != si2:
+        lsb1 = si1 & -si1
+        lsb2 = si2 & -si2
+        c = lsb1 - lsb2
+        if c:
+            return c
+        m = ~lsb1
+        si1 &= m
+        si2 &= m
+    return 0
 
 
 _NUMBERS = set('0123456789')
