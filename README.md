@@ -75,3 +75,15 @@ list(Stroke.xrange('ST', 'TP'))
 list(Stroke('-T').xsuffixes())
 # => [-TS, -TD, -TSD, -TZ, -TSZ, -TDZ, -TSDZ]
 ```
+
+
+## Release history
+
+### 0.3.3
+
+* fix `python_requires` package metadata
+
+### 0.3.2
+
+* first public release
+
