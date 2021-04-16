@@ -79,6 +79,10 @@ list(Stroke('-T').xsuffixes())
 
 ## Release history
 
+### 0.4.0
+
+* fix stroke comparison
+
 ### 0.3.3
 
 * fix `python_requires` package metadata
