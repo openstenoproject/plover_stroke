@@ -303,39 +303,6 @@ class BaseStroke(int):
     def is_suffix(self, other):
         return lsb(int(self)) > msb(int(self.__class__(other)))
 
-    @classmethod
-    def xrange(cls, start, stop=None):
-        start = int(cls(start))
-        if stop is None:
-            start, stop = 0, start
-        if -1 == stop:
-            stop = (1 << len(cls.KEYS)) - 1
-        stop = int(cls(stop))
-        assert start <= stop
-        for v in range(start, stop):
-            yield cls(v)
-
-    def xsuffixes(self, stop=None):
-        """Generate all stroke prefixed by <self>
-        (not included), until <stop> (included).
-        """
-        start_bit = msb(int(self)) << 1
-        end_bit = 1 << len(self.KEYS)
-        assert start_bit <= end_bit
-        count = popcount((end_bit - 1) & ~(start_bit - 1))
-        prefix = int(self)
-        shift = popcount(start_bit - 1)
-        if stop is None:
-            stop = end_bit - 1
-        stop = int(self.__class__(stop))
-        for n in range(1, (1 << count)):
-            v = n << shift
-            assert (prefix & v) == 0
-            v |= prefix
-            yield self.__class__(v)
-            if v == stop:
-                break
-
 
 # Prevent use of 'from stroke import *'.
 __all__ = ()
