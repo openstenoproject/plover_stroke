@@ -55,7 +55,7 @@ Stroke('L-')
 s = Stroke('STK')
 
 s.keys()
-# => ['S-', 'T-', 'K-']
+# => ('S-', 'T-', 'K-')
 s.is_number()
 # => False
 int(s)
@@ -81,6 +81,7 @@ list(Stroke('-T').xsuffixes())
 
 ### 1.0.0 [unreleased]
 
+* `Stroke.keys()` now return a tuple
 * fix corner case when parsing steno (`RR` -> `R-R`)
 * fix RTFCRE when numbers are involved (align with Plover's behavior)
 * fix implicit hyphen handling when numbers are involved
