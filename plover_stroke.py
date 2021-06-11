@@ -239,15 +239,15 @@ class BaseStroke(int):
             v &= ~m
 
     def __repr__(self):
-        is_number = self.is_number()
+        has_digit = self.has_digit()
         left = ''
         middle = ''
         right = ''
         for k in self:
-            if is_number:
+            if has_digit:
                 if k == self.NUMBER_KEY:
                     continue
-                k = self.KEY_TO_NUMBER[k]
+                k = self.KEY_TO_NUMBER.get(k, k)
             l = k.replace('-', '')
             if k in self.KEYS_IMPLICIT_HYPHEN:
                 middle += l
@@ -274,6 +274,13 @@ class BaseStroke(int):
 
     def keys(self):
         return list(self)
+
+    def has_digit(self):
+        if self.NUMBER_KEY is None:
+            return False
+        v = int(self)
+        nm = self.KEY_TO_MASK[self.NUMBER_KEY]
+        return v & nm and (v & self.NUMBER_MASK) > nm
 
     def is_number(self):
         if self.NUMBER_KEY is None:
