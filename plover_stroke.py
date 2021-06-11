@@ -186,16 +186,6 @@ class BaseStroke(int):
             return cls.from_steno(value)
         return cls.from_keys(value)
 
-    def isnumber(self):
-        if self.NUMBER_KEY is None:
-            return False
-        v = int(self)
-        nm = self.KEY_TO_MASK[self.NUMBER_KEY]
-        return (
-            v == (v & self.NUMBER_MASK)
-            and v & nm and v != nm
-        )
-
     def __hash__(self):
         return int(self)
 
@@ -247,12 +237,12 @@ class BaseStroke(int):
             v &= ~m
 
     def __repr__(self):
-        isnumber = self.isnumber()
+        is_number = self.is_number()
         left = ''
         middle = ''
         right = ''
         for k in self:
-            if isnumber:
+            if is_number:
                 if k == self.NUMBER_KEY:
                     continue
                 k = self.KEY_TO_NUMBER[k]
@@ -282,6 +272,16 @@ class BaseStroke(int):
 
     def keys(self):
         return list(self)
+
+    def is_number(self):
+        if self.NUMBER_KEY is None:
+            return False
+        v = int(self)
+        nm = self.KEY_TO_MASK[self.NUMBER_KEY]
+        return (
+            v == (v & self.NUMBER_MASK)
+            and v & nm and v != nm
+        )
 
     def is_prefix(self, other):
         return msb(int(self)) < lsb(int(self.__class__(other)))
