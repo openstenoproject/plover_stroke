@@ -1,3 +1,4 @@
+import functools
 import operator
 
 import pytest
@@ -37,6 +38,21 @@ def english_stroke_class(stroke_class):
         }
     )
     return stroke_class
+
+def test_setup_no_numbers(stroke_class):
+    keys = '''
+        #
+        S- T- K- P- W- H- R-
+        A- O-
+        *
+        -E -U
+        -F -R -P -B -L -G -T -S -D -Z
+    '''.split()
+    stroke_class.setup(keys)
+    assert stroke_class.KEYS == tuple(keys)
+    assert stroke_class.NUMBER_KEY is None
+    assert stroke_class.NUMBER_MASK == 0
+    assert stroke_class.NUMBER_TO_KEY == {}
 
 def test_setup_explicit(stroke_class):
     keys = '''
@@ -83,20 +99,121 @@ def test_setup_explicit_with_numbers(stroke_class):
     assert stroke_class.KEYS_LETTERS == ''.join(keys).replace('-', '')
     assert stroke_class.KEY_FIRST_RIGHT_INDEX == keys.index('-E')
 
-def test_setup_implicit_hyphens(stroke_class):
-    keys = '''
-        #
-        S- T- K- P- W- H- R-
-        A- O-
-        *
-        -E -U
-        -F -R -P -B -L -G -T -S -D -Z
-    '''.split()
+IMPLICIT_HYPHENS_DETECTION_TESTS = (
+    ('''
+     #
+     S- T- K- P- W- H- R-
+     A- O-
+     *
+     -E -U
+     -F -R -P -B -L -G -T -S -D -Z
+     ''',
+     'A- O- * -E -U -F'
+    ),
+    ('''
+     #
+     A- O-
+     *
+     ''',
+     '# A- O- *'
+    ),
+    ('''
+     -F -R -P -B -L -G -T -S -D -Z
+     ''',
+     '-F -R -P -B -L -G -T -S -D -Z'
+    ),
+    ('''
+     #
+     S- P- C- T- H- V- R-
+     I- A-
+     -E -O
+     -c -s -t -h -p -r
+     *
+     -i -e -a -o
+     ''',
+     '''
+     #
+     S- P- C- T- H- V- R-
+     I- A-
+     -E -O
+     -c -s -t -h -p -r
+     *
+     -i -e -a -o
+     '''
+    ),
+)
+
+@pytest.mark.parametrize('keys, implicit_hyphen_keys', IMPLICIT_HYPHENS_DETECTION_TESTS)
+def test_setup_implicit_hyphens_detection(stroke_class, keys, implicit_hyphen_keys):
+    keys = tuple(keys.split())
+    implicit_hyphen_keys = set(implicit_hyphen_keys.split())
     stroke_class.setup(keys)
-    assert stroke_class.KEYS == tuple(keys)
-    assert stroke_class.KEYS_IMPLICIT_HYPHEN == {'A-', 'O-', '*', '-E', '-U', '-F'}
-    assert stroke_class.KEYS_LETTERS == ''.join(keys).replace('-', '')
-    assert stroke_class.KEY_FIRST_RIGHT_INDEX == keys.index('-E')
+    assert stroke_class.KEYS == keys
+    assert stroke_class.KEYS_IMPLICIT_HYPHEN == implicit_hyphen_keys
+
+INVALID_PARAMS_TESTS = (
+    ('''
+     #
+     S- T- K- P- W- H- R-
+     A- O-
+     *
+     -E -U
+     -F -R -P -B -L -G -T -S -D -Z
+     '''.split(),
+     dict(number_key='V-',
+          numbers={
+              'S-': '1-',
+              'T-': '2-',
+              'P-': '3-',
+              'H-': '4-',
+              'A-': '5-',
+              'O-': '0-',
+              '-F': '-6',
+              '-P': '-7',
+              '-L': '-8',
+              '-T': '-9',
+          }),
+     KeyError,
+    ),
+    ('''
+     #
+     S- T- K- P- W- H- R-
+     A- O-
+     *
+     -E -U
+     -F -R -P -B -L -G -T -S -D -Z
+     '''.split(),
+     dict(implicit_hyphen_keys='A- O- -E -U'.split()),
+     AssertionError,
+    ),
+    ('''
+     #
+     S- T- K- P- W- H- R-
+     A- O-
+     *
+     -E -U
+     -F -R -P -B -L -G -T -S -D -Z
+     '''.split(),
+     dict(implicit_hyphen_keys='A- O- -E -U -V'.split()),
+     ValueError,
+    ),
+    ('''
+     #
+     S- T- K- P- W- H- R-
+     A- O-
+     *
+     -E -U
+     -F -R -P -B -L -G -T -S -D -Z
+     '''.split(),
+     dict(implicit_hyphen_keys='R- A- O- * -E -U'.split()),
+     AssertionError,
+    ),
+)
+
+@pytest.mark.parametrize('keys, kwargs, exception', INVALID_PARAMS_TESTS)
+def test_setup_invalid_params(stroke_class, keys, kwargs, exception):
+    with pytest.raises(exception):
+        stroke_class.setup(keys, **kwargs)
 
 def test_setup_numbers(stroke_class):
     keys = '''
@@ -134,73 +251,138 @@ def test_setup_numbers(stroke_class):
 
 NEW_TESTS = (
     (
-        '#',
+        '#', '#-',
         '#',
         '#',
         0b00000000000000000000001,
         False,
     ),
     (
-        'T- -B -P S-',
+        '# -Z', '#Z',
+        '# -Z',
+        '#-Z',
+        0b10000000000000000000001,
+        False,
+    ),
+    (
+        'T- -B -P S-', 'ST-PB',
         'S- T- -P -B',
         'ST-PB',
         0b00000011000000000000110,
         False,
     ),
     (
-        'O- -E A-',
+        'O- -E A-', 'AO-E',
         'A- O- -E',
         'AOE',
         0b00000000000101100000000,
         False,
     ),
     (
-        '-Z *',
+        '-Z *', '*-Z',
         '* -Z',
         '*Z',
         0b10000000000010000000000,
         False,
     ),
     (
-        '-R R-',
+        '-R R-', 'R-R',
         'R- -R',
         'R-R',
         0b00000000100000010000000,
         False,
     ),
     (
-        'S- -P O- # T-',
+        'S- -P O- # T-', '#STO-P',
         '# S- T- O- -P',
         '120-7',
         0b00000001000001000000111,
         True,
     ),
     (
-        '1- 2- 0- -7',
+        '1- 2- 0- -7', '#1207',
         '# S- T- O- -P',
         '120-7',
         0b00000001000001000000111,
         True,
     ),
     (
-        '-L -F',
+        '-L -F', 'FL',
         '-F -L',
         '-FL',
         0b00000100010000000000000,
         False,
     ),
+    (
+        '1- 2- -E -7', '#12E7',
+        '# S- T- -E -P',
+        '#STEP',
+        0b00000001000100000000111,
+        False,
+    ),
 )
 
-@pytest.mark.parametrize('in_keys, keys, rtfcre, value, is_number', NEW_TESTS)
-def test_new(english_stroke_class, in_keys, keys, rtfcre, value, is_number):
+@pytest.mark.parametrize('in_keys, in_rtfcre, keys, rtfcre, value, is_number', NEW_TESTS)
+def test_new(english_stroke_class, in_keys, in_rtfcre, keys, rtfcre, value, is_number):
     in_keys = in_keys.split()
     keys = keys.split()
-    for init_arg in (in_keys, rtfcre, value):
+    for init_arg in (in_keys, in_rtfcre, rtfcre, value):
         s = english_stroke_class(init_arg)
-        assert s == value
+        assert int(s) == value
+        assert hash(s) == int(s)
+        assert list(s) == keys
         assert s.keys() == keys
-        assert s.is_number() == is_number
+        assert len(s) == len(keys)
         assert str(s) == rtfcre
+        assert s.first() == keys[0]
+        assert s.last() == keys[-1]
+        assert s.is_number() == is_number
+
+def test_empty_stroke(english_stroke_class):
+    empty_stroke = english_stroke_class(0)
+    assert int(empty_stroke) == 0
+    assert str(empty_stroke) == ''
+    assert not empty_stroke.is_number()
+
+AFFIX_TESTS = (
+    ('#', 'prefix', 'ST', True),
+    ('#', 'suffix', 'ST', False),
+    ('ST', 'suffix', '#', True),
+    ('ST', 'prefix', '#', False),
+    ('ST', 'suffix', 'T', False),
+    ('ST', 'prefix', 'T', False),
+    ('T', 'suffix', 'ST', False),
+    ('T', 'prefix', 'ST', False),
+)
+
+@pytest.mark.parametrize('s1, op, s2, expected', AFFIX_TESTS)
+def test_affix(english_stroke_class, s1, op, s2, expected):
+    op = operator.methodcaller('is_' + op, s2)
+    assert op(english_stroke_class(s1)) == expected
+
+CONTAIN_TESTS = (
+    ('#', '19', True),
+    ('E', 'TEFT', True),
+    ('1', '#START', True),
+    ('S', 'TEFT', False),
+    ('TEFT', 'E', False),
+)
+
+@pytest.mark.parametrize('s1, s2, expected', CONTAIN_TESTS)
+def test_contain(english_stroke_class, s1, s2, expected):
+    assert (s1 in english_stroke_class(s2)) == expected
+
+INVERT_TESTS = (
+    (0, '#STKPWHRAO*EUFRPBLGTSDZ'),
+    ('AOEU', '#STKPWHR*FRPBLGTSDZ'),
+    (0b00010001010101100000001,
+     0b11101110101010011111110),
+)
+
+@pytest.mark.parametrize('s1, s2', INVERT_TESTS)
+def test_invert(english_stroke_class, s1, s2):
+    assert ~english_stroke_class(s1) == s2
+    assert ~english_stroke_class(s2) == s1
 
 HASH_TESTS = (
     ('#',    0b00000000000000000000001),
@@ -217,6 +399,23 @@ HASH_TESTS = (
 @pytest.mark.parametrize('steno, hash_value', HASH_TESTS)
 def test_hash(english_stroke_class, steno, hash_value):
     assert hash(english_stroke_class(steno)) == hash_value
+
+OP_TESTS = (
+    ('#', '|', 'ST', '12'),
+    ('12', '&', '#ST', '12'),
+    ('12', '-', '#', 'ST'),
+    ('PL', '+', '#', '38'),
+)
+
+@pytest.mark.parametrize('s1, op, s2, expected', OP_TESTS)
+def test_op(english_stroke_class, s1, op, s2, expected):
+    op = {
+        '|': operator.or_,
+        '&': operator.and_,
+        '+': operator.add,
+        '-': operator.sub,
+    }[op]
+    assert op(english_stroke_class(s1), s2) == expected
 
 CMP_TESTS = (
     ('#', '<', 'ST'),
