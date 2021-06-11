@@ -150,7 +150,7 @@ class BaseStroke(int):
         keys = set()
         for letter in steno:
             if letter == '-':
-                if n >= cls.KEY_FIRST_RIGHT_INDEX:
+                if n > cls.KEY_FIRST_RIGHT_INDEX:
                     raise ValueError('invalid letter %r in %r' % (letter, steno))
                 n = cls.KEY_FIRST_RIGHT_INDEX
                 continue
@@ -161,6 +161,7 @@ class BaseStroke(int):
             if -1 == n:
                 raise ValueError('invalid letter %r in %r' % (letter, steno))
             keys.add(cls.KEYS[n])
+            n += 1
         return cls.from_keys(keys)
 
     @classmethod
