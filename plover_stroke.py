@@ -145,7 +145,7 @@ class BaseStroke(int):
     @classmethod
     def from_steno(cls, steno):
         if not steno:
-            return cls.from_integer(0)
+            raise ValueError('invalid empty steno')
         n = 0
         keys = set()
         for letter in steno:

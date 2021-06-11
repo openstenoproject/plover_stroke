@@ -81,6 +81,7 @@ list(Stroke('-T').xsuffixes())
 
 ### 1.0.0 [unreleased]
 
+* `Stroke('')` now raise an exception (use `Stroke(0)` to create an empty stroke)
 * `Stroke.keys()` now return a tuple
 * fix corner case when parsing steno (`RR` -> `R-R`)
 * fix RTFCRE when numbers are involved (align with Plover's behavior)
