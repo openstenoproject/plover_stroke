@@ -56,7 +56,7 @@ s = Stroke('STK')
 
 s.keys()
 # => ['S-', 'T-', 'K-']
-s.isnumber()
+s.is_number()
 # => False
 int(s)
 # => 14
@@ -80,6 +80,8 @@ list(Stroke('-T').xsuffixes())
 ## Release history
 
 ### 1.0.0 [unreleased]
+
+* renamed `Stroke.isnumber` to `Stroke.is_number`
 
 
 ### 0.4.0
