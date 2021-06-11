@@ -191,15 +191,15 @@ NEW_TESTS = (
     ),
 )
 
-@pytest.mark.parametrize('in_keys, keys, rtfcre, value, isnumber', NEW_TESTS)
-def test_new(english_stroke_class, in_keys, keys, rtfcre, value, isnumber):
+@pytest.mark.parametrize('in_keys, keys, rtfcre, value, is_number', NEW_TESTS)
+def test_new(english_stroke_class, in_keys, keys, rtfcre, value, is_number):
     in_keys = in_keys.split()
     keys = keys.split()
     for init_arg in (in_keys, rtfcre, value):
         s = english_stroke_class(init_arg)
         assert s == value
         assert s.keys() == keys
-        assert s.isnumber() == isnumber
+        assert s.is_number() == is_number
         assert str(s) == rtfcre
 
 HASH_TESTS = (
