@@ -135,6 +135,8 @@ class BaseStroke(int):
             cls.NUMBER_KEY = number_key
             cls.NUMBER_MASK |= cls.KEY_TO_MASK[number_key]
             for key, num in cls.KEY_TO_NUMBER.items():
+                if key in cls.KEYS_IMPLICIT_HYPHEN:
+                    cls.KEYS_IMPLICIT_HYPHEN.add(num)
                 cls.NUMBER_TO_KEY[num.strip('-')] = (key.strip('-'), cls.KEYS.index(key))
                 cls.KEY_TO_MASK[num] = cls.KEY_TO_MASK[key]
                 cls.NUMBER_MASK |= cls.KEY_TO_MASK[key]

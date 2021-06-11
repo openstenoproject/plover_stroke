@@ -240,7 +240,7 @@ def test_setup_numbers(stroke_class):
     }
     stroke_class.setup(keys, implicit_hyphen_keys, number_key, numbers)
     assert stroke_class.KEYS == tuple(keys)
-    assert stroke_class.KEYS_IMPLICIT_HYPHEN == set(implicit_hyphen_keys)
+    assert stroke_class.KEYS_IMPLICIT_HYPHEN == set(implicit_hyphen_keys) | set(numbers.get(k, k) for k in implicit_hyphen_keys)
     assert stroke_class.KEYS_LETTERS == ''.join(keys).replace('-', '')
     assert stroke_class.KEY_FIRST_RIGHT_INDEX == keys.index('-E')
     assert stroke_class.NUMBER_KEY == number_key
@@ -295,14 +295,14 @@ NEW_TESTS = (
     (
         'S- -P O- # T-', '#STO-P',
         '# S- T- O- -P',
-        '120-7',
+        '1207',
         0b00000001000001000000111,
         True,
     ),
     (
         '1- 2- 0- -7', '#1207',
         '# S- T- O- -P',
-        '120-7',
+        '1207',
         0b00000001000001000000111,
         True,
     ),
