@@ -249,6 +249,10 @@ def test_setup_numbers(stroke_class):
         for k, v in numbers.items()
     }
 
+def test_from_empty_steno(english_stroke_class):
+    with pytest.raises(ValueError):
+        english_stroke_class.from_steno('')
+
 NEW_TESTS = (
     (
         '#', '#-',
