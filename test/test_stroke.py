@@ -1,5 +1,6 @@
 import functools
 import operator
+import re
 
 import pytest
 
@@ -39,7 +40,7 @@ def english_stroke_class(stroke_class):
     )
     return stroke_class
 
-def test_setup_no_numbers(stroke_class):
+def test_setup_minimal(stroke_class):
     keys = '''
         #
         S- T- K- P- W- H- R-
@@ -49,10 +50,16 @@ def test_setup_no_numbers(stroke_class):
         -F -R -P -B -L -G -T -S -D -Z
     '''.split()
     stroke_class.setup(keys)
-    assert stroke_class.KEYS == tuple(keys)
-    assert stroke_class.NUMBER_KEY is None
-    assert stroke_class.NUMBER_MASK == 0
-    assert stroke_class.NUMBER_TO_KEY == {}
+    helper = stroke_class._helper
+    assert helper.num_keys             == len(keys)
+    assert helper.keys                 == tuple(keys)
+    assert helper.letters              == ''.join(keys).replace('-', '')
+    assert helper.numbers              == ''.join(keys).replace('-', '')
+    assert helper.implicit_hyphen_mask == 0b00000000011111100000000
+    assert helper.number_key_mask      == 0b00000000000000000000000
+    assert helper.numbers_mask         == 0b00000000000000000000000
+    assert helper.right_keys_mask      == 0b11111111111100000000000
+    assert helper.right_keys_index     == keys.index('-E')
 
 def test_setup_explicit(stroke_class):
     keys = '''
@@ -65,10 +72,16 @@ def test_setup_explicit(stroke_class):
     '''.split()
     implicit_hyphen_keys = 'A- O- * -E -U'.split()
     stroke_class.setup(keys, implicit_hyphen_keys)
-    assert stroke_class.KEYS == tuple(keys)
-    assert stroke_class.KEYS_IMPLICIT_HYPHEN == set(implicit_hyphen_keys)
-    assert stroke_class.KEYS_LETTERS == ''.join(keys).replace('-', '')
-    assert stroke_class.KEY_FIRST_RIGHT_INDEX == keys.index('-E')
+    helper = stroke_class._helper
+    assert helper.num_keys             == len(keys)
+    assert helper.keys                 == tuple(keys)
+    assert helper.letters              == ''.join(keys).replace('-', '')
+    assert helper.numbers              == ''.join(keys).replace('-', '')
+    assert helper.implicit_hyphen_mask == 0b00000000001111100000000
+    assert helper.number_key_mask      == 0b00000000000000000000000
+    assert helper.numbers_mask         == 0b00000000000000000000000
+    assert helper.right_keys_mask      == 0b11111111111100000000000
+    assert helper.right_keys_index     == keys.index('-E')
 
 def test_setup_explicit_with_numbers(stroke_class):
     keys = '''
@@ -94,15 +107,16 @@ def test_setup_explicit_with_numbers(stroke_class):
         '-T': '-9',
     }
     stroke_class.setup(keys, implicit_hyphen_keys, number_key, numbers)
-    assert stroke_class.KEYS == tuple(keys)
-    assert stroke_class.KEYS_IMPLICIT_HYPHEN == set(implicit_hyphen_keys) | set(numbers.get(k, k) for k in implicit_hyphen_keys)
-    assert stroke_class.KEYS_LETTERS == ''.join(keys).replace('-', '')
-    assert stroke_class.KEY_FIRST_RIGHT_INDEX == keys.index('-E')
-    assert stroke_class.NUMBER_KEY == number_key
-    assert stroke_class.NUMBER_TO_KEY == {
-        v.replace('-', ''): (k.replace('-', ''), keys.index(k))
-        for k, v in numbers.items()
-    }
+    helper = stroke_class._helper
+    assert helper.num_keys             == len(keys)
+    assert helper.keys                 == tuple(keys)
+    assert helper.letters              == ''.join(keys).replace('-', '')
+    assert helper.numbers              == ''.join(numbers.get(k, k) for k in keys).replace('-', '')
+    assert helper.implicit_hyphen_mask == 0b00000000001111100000000
+    assert helper.number_key_mask      == 0b00000000000000000000001
+    assert helper.numbers_mask         == 0b00010101010001101010110
+    assert helper.right_keys_mask      == 0b11111111111100000000000
+    assert helper.right_keys_index     == keys.index('-E')
 
 IMPLICIT_HYPHENS_DETECTION_TESTS = (
     ('''
@@ -150,11 +164,15 @@ IMPLICIT_HYPHENS_DETECTION_TESTS = (
 
 @pytest.mark.parametrize('keys, implicit_hyphen_keys', IMPLICIT_HYPHENS_DETECTION_TESTS)
 def test_setup_implicit_hyphens_detection(stroke_class, keys, implicit_hyphen_keys):
-    keys = tuple(keys.split())
-    implicit_hyphen_keys = set(implicit_hyphen_keys.split())
+    keys = keys.split()
+    implicit_hyphen_keys = implicit_hyphen_keys.split()
+    implicit_hyphen_mask = functools.reduce(operator.or_, (
+        1 << keys.index(k) for k in implicit_hyphen_keys
+    ), 0)
     stroke_class.setup(keys)
-    assert stroke_class.KEYS == keys
-    assert stroke_class.KEYS_IMPLICIT_HYPHEN == implicit_hyphen_keys
+    helper = stroke_class._helper
+    assert helper.keys == tuple(keys)
+    assert helper.implicit_hyphen_mask == implicit_hyphen_mask
 
 INVALID_PARAMS_TESTS = (
     ('''
@@ -178,7 +196,28 @@ INVALID_PARAMS_TESTS = (
               '-L': '-8',
               '-T': '-9',
           }),
-     KeyError,
+     ValueError,
+     "invalid `number_key`"
+    ),
+    ('''
+     #
+     S- T- K- P- W- H- R-
+     A- O-
+     *
+     -E -U
+     -F -R -P -B -L -G -T -S -D -Z
+     '''.split(),
+     dict(number_key='#',
+          numbers={
+              'S-': '1-',
+              'T-': '2-',
+              '-F': '-6',
+              '-P': '-7',
+              '-L': '-8',
+              '-T': '-9',
+          }),
+     ValueError,
+     "invalid `numbers`"
     ),
     ('''
      #
@@ -189,7 +228,8 @@ INVALID_PARAMS_TESTS = (
      -F -R -P -B -L -G -T -S -D -Z
      '''.split(),
      dict(implicit_hyphen_keys='A- O- -E -U'.split()),
-     AssertionError,
+     ValueError,
+     "invalid `implicit_hyphen_keys`: not a continuous block"
     ),
     ('''
      #
@@ -201,6 +241,7 @@ INVALID_PARAMS_TESTS = (
      '''.split(),
      dict(implicit_hyphen_keys='A- O- -E -U -V'.split()),
      ValueError,
+     "invalid `implicit_hyphen_keys`: not all keys accounted for"
     ),
     ('''
      #
@@ -211,13 +252,14 @@ INVALID_PARAMS_TESTS = (
      -F -R -P -B -L -G -T -S -D -Z
      '''.split(),
      dict(implicit_hyphen_keys='R- A- O- * -E -U'.split()),
-     AssertionError,
+     ValueError,
+     "invalid `implicit_hyphen_keys`: some letters are not unique"
     ),
 )
 
-@pytest.mark.parametrize('keys, kwargs, exception', INVALID_PARAMS_TESTS)
-def test_setup_invalid_params(stroke_class, keys, kwargs, exception):
-    with pytest.raises(exception):
+@pytest.mark.parametrize('keys, kwargs, exception, match', INVALID_PARAMS_TESTS)
+def test_setup_invalid_params(stroke_class, keys, kwargs, exception, match):
+    with pytest.raises(exception, match='^' + re.escape(match) + '$'):
         stroke_class.setup(keys, **kwargs)
 
 def test_from_empty_steno(english_stroke_class):

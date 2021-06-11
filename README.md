@@ -80,6 +80,7 @@ sorted(map(Stroke, 'AOE ST-PB *Z # R-R'.split()))
 * fix RTFCRE when numbers are involved (align with Plover's behavior)
 * fix implicit hyphen handling when numbers are involved
 * renamed `Stroke.isnumber` to `Stroke.is_number`
+* speed up implementation through a C extension
 
 
 ### 0.4.0
