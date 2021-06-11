@@ -268,9 +268,13 @@ class BaseStroke(int):
         return self.__repr__()
 
     def first(self):
+        if not self:
+            raise ValueError('empty stroke') 
         return self.KEY_FROM_MASK[lsb(int(self))]
 
     def last(self):
+        if not self:
+            raise ValueError('empty stroke') 
         return self.KEY_FROM_MASK[msb(int(self))]
 
     def keys(self):
