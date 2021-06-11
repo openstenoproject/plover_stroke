@@ -458,43 +458,6 @@ def test_sort(english_stroke_class):
     ]
     assert list(sorted(unsorted_strokes)) == sorted_strokes
 
-def test_xrange(english_stroke_class):
-    expected = [
-        english_stroke_class(s)
-        for s in '''
-        ST
-        #ST
-        K
-        #K
-        SK
-        #SK
-        TK
-        #TK
-        STK
-        #STK
-        P
-        #P
-        SP
-        #SP
-        '''.split()
-    ]
-    assert list(english_stroke_class.xrange('ST', 'TP')) == expected
-
-def test_xsuffixes(english_stroke_class):
-    expected = [
-        english_stroke_class(s)
-        for s in '''
-        -TS
-        -TD
-        -TSD
-        -TZ
-        -TSZ
-        -TDZ
-        -TSDZ
-        '''.split()
-    ]
-    assert list(english_stroke_class('-T').xsuffixes()) == expected
-
 def test_no_numbers_system():
     class Stroke(BaseStroke):
         pass
