@@ -274,7 +274,7 @@ class BaseStroke(int):
         return self.KEY_FROM_MASK[msb(int(self))]
 
     def keys(self):
-        return list(self)
+        return tuple(self)
 
     def has_digit(self):
         if self.NUMBER_KEY is None:
