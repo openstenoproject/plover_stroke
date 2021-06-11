@@ -81,6 +81,7 @@ list(Stroke('-T').xsuffixes())
 
 ### 1.0.0 [unreleased]
 
+* fix RTFCRE when numbers are involved (align with Plover's behavior)
 * fix implicit hyphen handling when numbers are involved
 * renamed `Stroke.isnumber` to `Stroke.is_number`
 
