@@ -79,7 +79,7 @@ def test_setup_explicit_with_numbers(stroke_class):
         -E -U
         -F -R -P -B -L -G -T -S -D -Z
     '''.split()
-    implicit_hyphen_keys = 'A- O- 5- 0- -E -U *'.split()
+    implicit_hyphen_keys = 'A- O- * -E -U'.split()
     number_key = '#'
     numbers = {
         'S-': '1-',
@@ -95,9 +95,14 @@ def test_setup_explicit_with_numbers(stroke_class):
     }
     stroke_class.setup(keys, implicit_hyphen_keys, number_key, numbers)
     assert stroke_class.KEYS == tuple(keys)
-    assert stroke_class.KEYS_IMPLICIT_HYPHEN == set(implicit_hyphen_keys)
+    assert stroke_class.KEYS_IMPLICIT_HYPHEN == set(implicit_hyphen_keys) | set(numbers.get(k, k) for k in implicit_hyphen_keys)
     assert stroke_class.KEYS_LETTERS == ''.join(keys).replace('-', '')
     assert stroke_class.KEY_FIRST_RIGHT_INDEX == keys.index('-E')
+    assert stroke_class.NUMBER_KEY == number_key
+    assert stroke_class.NUMBER_TO_KEY == {
+        v.replace('-', ''): (k.replace('-', ''), keys.index(k))
+        for k, v in numbers.items()
+    }
 
 IMPLICIT_HYPHENS_DETECTION_TESTS = (
     ('''
@@ -214,40 +219,6 @@ INVALID_PARAMS_TESTS = (
 def test_setup_invalid_params(stroke_class, keys, kwargs, exception):
     with pytest.raises(exception):
         stroke_class.setup(keys, **kwargs)
-
-def test_setup_numbers(stroke_class):
-    keys = '''
-        #
-        S- T- K- P- W- H- R-
-        A- O-
-        *
-        -E -U
-        -F -R -P -B -L -G -T -S -D -Z
-    '''.split()
-    implicit_hyphen_keys = 'A- O- * -E -U'.split()
-    number_key = '#'
-    numbers = {
-        'S-': '1-',
-        'T-': '2-',
-        'P-': '3-',
-        'H-': '4-',
-        'A-': '5-',
-        'O-': '0-',
-        '-F': '-6',
-        '-P': '-7',
-        '-L': '-8',
-        '-T': '-9',
-    }
-    stroke_class.setup(keys, implicit_hyphen_keys, number_key, numbers)
-    assert stroke_class.KEYS == tuple(keys)
-    assert stroke_class.KEYS_IMPLICIT_HYPHEN == set(implicit_hyphen_keys) | set(numbers.get(k, k) for k in implicit_hyphen_keys)
-    assert stroke_class.KEYS_LETTERS == ''.join(keys).replace('-', '')
-    assert stroke_class.KEY_FIRST_RIGHT_INDEX == keys.index('-E')
-    assert stroke_class.NUMBER_KEY == number_key
-    assert stroke_class.NUMBER_TO_KEY == {
-        v.replace('-', ''): (k.replace('-', ''), keys.index(k))
-        for k, v in numbers.items()
-    }
 
 NEW_TESTS = (
     (
