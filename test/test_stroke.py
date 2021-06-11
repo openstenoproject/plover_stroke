@@ -341,7 +341,7 @@ def test_new(english_stroke_class, in_keys, in_rtfcre, keys, rtfcre, value, has_
         assert int(s) == value
         assert hash(s) == int(s)
         assert list(s) == keys
-        assert s.keys() == keys
+        assert s.keys() == tuple(keys)
         assert len(s) == len(keys)
         assert str(s) == rtfcre
         assert s.first() == keys[0]
