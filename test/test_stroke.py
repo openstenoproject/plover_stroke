@@ -256,12 +256,14 @@ NEW_TESTS = (
         '#',
         0b00000000000000000000001,
         False,
+        False,
     ),
     (
         '# -Z', '#Z',
         '# -Z',
         '#-Z',
         0b10000000000000000000001,
+        False,
         False,
     ),
     (
@@ -270,12 +272,14 @@ NEW_TESTS = (
         'ST-PB',
         0b00000011000000000000110,
         False,
+        False,
     ),
     (
         'O- -E A-', 'AO-E',
         'A- O- -E',
         'AOE',
         0b00000000000101100000000,
+        False,
         False,
     ),
     (
@@ -284,12 +288,14 @@ NEW_TESTS = (
         '*Z',
         0b10000000000010000000000,
         False,
+        False,
     ),
     (
         '-R R-', 'R-R',
         'R- -R',
         'R-R',
         0b00000000100000010000000,
+        False,
         False,
     ),
     (
@@ -298,12 +304,14 @@ NEW_TESTS = (
         '1207',
         0b00000001000001000000111,
         True,
+        True,
     ),
     (
         '1- 2- 0- -7', '#1207',
         '# S- T- O- -P',
         '1207',
         0b00000001000001000000111,
+        True,
         True,
     ),
     (
@@ -312,18 +320,20 @@ NEW_TESTS = (
         '-FL',
         0b00000100010000000000000,
         False,
+        False,
     ),
     (
         '1- 2- -E -7', '#12E7',
         '# S- T- -E -P',
-        '#STEP',
+        '12E7',
         0b00000001000100000000111,
+        True,
         False,
     ),
 )
 
-@pytest.mark.parametrize('in_keys, in_rtfcre, keys, rtfcre, value, is_number', NEW_TESTS)
-def test_new(english_stroke_class, in_keys, in_rtfcre, keys, rtfcre, value, is_number):
+@pytest.mark.parametrize('in_keys, in_rtfcre, keys, rtfcre, value, has_digit, is_number', NEW_TESTS)
+def test_new(english_stroke_class, in_keys, in_rtfcre, keys, rtfcre, value, has_digit, is_number):
     in_keys = in_keys.split()
     keys = keys.split()
     for init_arg in (in_keys, in_rtfcre, keys, rtfcre, value):
@@ -336,6 +346,7 @@ def test_new(english_stroke_class, in_keys, in_rtfcre, keys, rtfcre, value, is_n
         assert str(s) == rtfcre
         assert s.first() == keys[0]
         assert s.last() == keys[-1]
+        assert s.has_digit() == has_digit
         assert s.is_number() == is_number
 
 def test_empty_stroke(english_stroke_class):
@@ -345,6 +356,7 @@ def test_empty_stroke(english_stroke_class):
     assert empty_stroke == english_stroke_class('')
     assert empty_stroke == english_stroke_class([])
     assert empty_stroke == english_stroke_class(())
+    assert not empty_stroke.has_digit()
     assert not empty_stroke.is_number()
 
 AFFIX_TESTS = (
