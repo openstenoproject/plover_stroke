@@ -358,6 +358,10 @@ def test_empty_stroke(english_stroke_class):
     assert empty_stroke == english_stroke_class(())
     assert not empty_stroke.has_digit()
     assert not empty_stroke.is_number()
+    with pytest.raises(ValueError):
+        empty_stroke.first()
+    with pytest.raises(ValueError):
+        empty_stroke.last()
 
 AFFIX_TESTS = (
     ('#', 'prefix', 'ST', True),
