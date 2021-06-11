@@ -66,14 +66,6 @@ s == 0b00000000000000000001110
 # Strokes can be compared:
 sorted(map(Stroke, 'AOE ST-PB *Z # R-R'.split()))
 # => [#, ST-PB, R-R, AOE, *Z]
-
-# Generating a range of strokes:
-list(Stroke.xrange('ST', 'TP'))
-# => [ST, 12, K, #K, SK, #SK, TK, #TK, STK, #STK, P, 3, SP, 13]
-
-# Generating list of possible suffix strokes:
-list(Stroke('-T').xsuffixes())
-# => [-TS, -TD, -TSD, -TZ, -TSZ, -TDZ, -TSDZ]
 ```
 
 
@@ -81,6 +73,7 @@ list(Stroke('-T').xsuffixes())
 
 ### 1.0.0 [unreleased]
 
+* drop `Stroke.xrange` and `Stroke.xsuffixes` methods
 * `Stroke('')` now raise an exception (use `Stroke(0)` to create an empty stroke)
 * `Stroke.keys()` now return a tuple
 * fix corner case when parsing steno (`RR` -> `R-R`)
