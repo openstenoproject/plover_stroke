@@ -1,5 +1,7 @@
 import functools
+import inspect
 import operator
+import re
 
 import pytest
 
@@ -39,7 +41,7 @@ def english_stroke_class(stroke_class):
     )
     return stroke_class
 
-def test_setup_no_numbers(stroke_class):
+def test_setup_minimal(stroke_class):
     keys = '''
         #
         S- T- K- P- W- H- R-
@@ -49,10 +51,15 @@ def test_setup_no_numbers(stroke_class):
         -F -R -P -B -L -G -T -S -D -Z
     '''.split()
     stroke_class.setup(keys)
-    assert stroke_class.KEYS == tuple(keys)
-    assert stroke_class.NUMBER_KEY is None
-    assert stroke_class.NUMBER_MASK == 0
-    assert stroke_class.NUMBER_TO_KEY == {}
+    helper = stroke_class._helper
+    assert helper.num_keys             == len(keys)
+    assert helper.keys                 == tuple(keys)
+    assert helper.letters              == ''.join(keys).replace('-', '')
+    assert helper.numbers              == ''.join(keys).replace('-', '')
+    assert helper.implicit_hyphen_mask == 0b00000000011111100000000
+    assert helper.number_key_mask      == 0b00000000000000000000000
+    assert helper.numbers_mask         == 0b00000000000000000000000
+    assert helper.right_keys_index     == keys.index('-E')
 
 def test_setup_explicit(stroke_class):
     keys = '''
@@ -65,10 +72,15 @@ def test_setup_explicit(stroke_class):
     '''.split()
     implicit_hyphen_keys = 'A- O- * -E -U'.split()
     stroke_class.setup(keys, implicit_hyphen_keys)
-    assert stroke_class.KEYS == tuple(keys)
-    assert stroke_class.KEYS_IMPLICIT_HYPHEN == set(implicit_hyphen_keys)
-    assert stroke_class.KEYS_LETTERS == ''.join(keys).replace('-', '')
-    assert stroke_class.KEY_FIRST_RIGHT_INDEX == keys.index('-E')
+    helper = stroke_class._helper
+    assert helper.num_keys             == len(keys)
+    assert helper.keys                 == tuple(keys)
+    assert helper.letters              == ''.join(keys).replace('-', '')
+    assert helper.numbers              == ''.join(keys).replace('-', '')
+    assert helper.implicit_hyphen_mask == 0b00000000001111100000000
+    assert helper.number_key_mask      == 0b00000000000000000000000
+    assert helper.numbers_mask         == 0b00000000000000000000000
+    assert helper.right_keys_index     == keys.index('-E')
 
 def test_setup_explicit_with_numbers(stroke_class):
     keys = '''
@@ -94,15 +106,15 @@ def test_setup_explicit_with_numbers(stroke_class):
         '-T': '-9',
     }
     stroke_class.setup(keys, implicit_hyphen_keys, number_key, numbers)
-    assert stroke_class.KEYS == tuple(keys)
-    assert stroke_class.KEYS_IMPLICIT_HYPHEN == set(implicit_hyphen_keys) | set(numbers.get(k, k) for k in implicit_hyphen_keys)
-    assert stroke_class.KEYS_LETTERS == ''.join(keys).replace('-', '')
-    assert stroke_class.KEY_FIRST_RIGHT_INDEX == keys.index('-E')
-    assert stroke_class.NUMBER_KEY == number_key
-    assert stroke_class.NUMBER_TO_KEY == {
-        v.replace('-', ''): (k.replace('-', ''), keys.index(k))
-        for k, v in numbers.items()
-    }
+    helper = stroke_class._helper
+    assert helper.num_keys             == len(keys)
+    assert helper.keys                 == tuple(keys)
+    assert helper.letters              == ''.join(keys).replace('-', '')
+    assert helper.numbers              == ''.join(numbers.get(k, k) for k in keys).replace('-', '')
+    assert helper.implicit_hyphen_mask == 0b00000000001111100000000
+    assert helper.number_key_mask      == 0b00000000000000000000001
+    assert helper.numbers_mask         == 0b00010101010001101010110
+    assert helper.right_keys_index     == keys.index('-E')
 
 IMPLICIT_HYPHENS_DETECTION_TESTS = (
     ('''
@@ -150,11 +162,15 @@ IMPLICIT_HYPHENS_DETECTION_TESTS = (
 
 @pytest.mark.parametrize('keys, implicit_hyphen_keys', IMPLICIT_HYPHENS_DETECTION_TESTS)
 def test_setup_implicit_hyphens_detection(stroke_class, keys, implicit_hyphen_keys):
-    keys = tuple(keys.split())
-    implicit_hyphen_keys = set(implicit_hyphen_keys.split())
+    keys = keys.split()
+    implicit_hyphen_keys = implicit_hyphen_keys.split()
+    implicit_hyphen_mask = functools.reduce(operator.or_, (
+        1 << keys.index(k) for k in implicit_hyphen_keys
+    ), 0)
     stroke_class.setup(keys)
-    assert stroke_class.KEYS == keys
-    assert stroke_class.KEYS_IMPLICIT_HYPHEN == implicit_hyphen_keys
+    helper = stroke_class._helper
+    assert helper.keys == tuple(keys)
+    assert helper.implicit_hyphen_mask == implicit_hyphen_mask
 
 INVALID_PARAMS_TESTS = (
     ('''
@@ -178,7 +194,28 @@ INVALID_PARAMS_TESTS = (
               '-L': '-8',
               '-T': '-9',
           }),
-     KeyError,
+     ValueError,
+     "invalid `number_key`"
+    ),
+    ('''
+     #
+     S- T- K- P- W- H- R-
+     A- O-
+     *
+     -E -U
+     -F -R -P -B -L -G -T -S -D -Z
+     '''.split(),
+     dict(number_key='#',
+          numbers={
+              'S-': '1-',
+              'T-': '2-',
+              '-F': '-6',
+              '-P': '-7',
+              '-L': '-8',
+              '-T': '-9',
+          }),
+     ValueError,
+     "invalid `numbers`"
     ),
     ('''
      #
@@ -189,7 +226,8 @@ INVALID_PARAMS_TESTS = (
      -F -R -P -B -L -G -T -S -D -Z
      '''.split(),
      dict(implicit_hyphen_keys='A- O- -E -U'.split()),
-     AssertionError,
+     ValueError,
+     "invalid `implicit_hyphen_keys`: not a continuous block"
     ),
     ('''
      #
@@ -201,6 +239,7 @@ INVALID_PARAMS_TESTS = (
      '''.split(),
      dict(implicit_hyphen_keys='A- O- -E -U -V'.split()),
      ValueError,
+     "invalid `implicit_hyphen_keys`: not all keys accounted for"
     ),
     ('''
      #
@@ -211,13 +250,14 @@ INVALID_PARAMS_TESTS = (
      -F -R -P -B -L -G -T -S -D -Z
      '''.split(),
      dict(implicit_hyphen_keys='R- A- O- * -E -U'.split()),
-     AssertionError,
+     ValueError,
+     "invalid `implicit_hyphen_keys`: some letters are not unique"
     ),
 )
 
-@pytest.mark.parametrize('keys, kwargs, exception', INVALID_PARAMS_TESTS)
-def test_setup_invalid_params(stroke_class, keys, kwargs, exception):
-    with pytest.raises(exception):
+@pytest.mark.parametrize('keys, kwargs, exception, match', INVALID_PARAMS_TESTS)
+def test_setup_invalid_params(stroke_class, keys, kwargs, exception, match):
+    with pytest.raises(exception, match='^' + re.escape(match) + '$'):
         stroke_class.setup(keys, **kwargs)
 
 NEW_TESTS = (
@@ -298,6 +338,20 @@ NEW_TESTS = (
         '# S- T- -E -P',
         '12E7',
         0b00000001000100000000111,
+        True,
+        False,
+    ),
+    (
+        '''
+        # S- 1- T- 2- K- P- 3- W- H- 4- R-
+        A- 5- O- 0-
+        *
+        -E -U
+        -6 -F -R -7 -P -B -8 -L -G -9 -T -S -D -Z
+        ''', '#STKPWHRAO*-EUFRPBLGTSDZ',
+        '# S- T- K- P- W- H- R- A- O- * -E -U -F -R -P -B -L -G -T -S -D -Z',
+        '12K3W4R50*EU6R7B8G9SDZ',
+        0b11111111111111111111111,
         True,
         False,
     ),
@@ -407,6 +461,15 @@ def test_op(english_stroke_class, s1, op, s2, expected):
     }[op]
     assert op(english_stroke_class(s1), s2) == expected
 
+CMP_OP = {
+    '<': operator.lt,
+    '<=': operator.le,
+    '==': operator.eq,
+    '!=': operator.ne,
+    '>=': operator.ge,
+    '>': operator.gt,
+}
+
 CMP_TESTS = (
     ('#', '<', 'ST'),
     ('T', '>', 'ST'),
@@ -421,19 +484,21 @@ CMP_TESTS = (
     ('APBD', '>=', 'APBD'),
     ('ST-TS', '<', 'ST-TZ'),
     ('ST-TSZ', '<', 'ST-TZ'),
+    ('#STKPWHRAO*-EUFRPBLGTSDZ', '==', '12K3W4R50*EU6R7B8G9SDZ'),
 )
 
 @pytest.mark.parametrize('steno, op, other_steno', CMP_TESTS)
 def test_cmp(english_stroke_class, steno, op, other_steno):
-    op = {
-        '<': operator.lt,
-        '<=': operator.le,
-        '==': operator.eq,
-        '!=': operator.ne,
-        '>=': operator.ge,
-        '>': operator.gt,
-    }[op]
+    op = CMP_OP[op]
     assert op(english_stroke_class(steno), other_steno)
+
+@pytest.mark.parametrize('steno, op, other_steno', CMP_TESTS)
+def test_cmp_sort_key(english_stroke_class, steno, op, other_steno):
+    op = CMP_OP[op]
+    stroke_to_sort_key = english_stroke_class._helper.stroke_to_sort_key
+    steno_sort_key = stroke_to_sort_key(steno)
+    other_sort_key = stroke_to_sort_key(other_steno)
+    assert op(steno_sort_key, other_sort_key)
 
 def test_sort(english_stroke_class):
     unsorted_strokes = [
@@ -458,6 +523,24 @@ def test_sort(english_stroke_class):
     ]
     assert list(sorted(unsorted_strokes)) == sorted_strokes
 
+def test_sort_key(english_stroke_class):
+    stroke_to_sort_key = english_stroke_class._helper.stroke_to_sort_key
+    unsorted_strokes = '''
+        AOE
+        ST-PB
+        *Z
+        #
+        R-R
+    '''.split()
+    sorted_strokes = '''
+        #
+        ST-PB
+        R-R
+        AOE
+        *Z
+    '''.split()
+    assert sorted(unsorted_strokes, key=stroke_to_sort_key) == sorted_strokes
+
 def test_no_numbers_system():
     class Stroke(BaseStroke):
         pass
@@ -472,3 +555,101 @@ def test_no_numbers_system():
         ('A-', 'O-', '*', '-E', '-U')
     )
     s1 = Stroke(23)
+
+NORMALIZE_STENO_TESTS = (
+    ('#STKPWHRAO*-EUFRPBLGTSDZ/12K3W4R50*-EU6R7B8G9SDZ',
+     ('12K3W4R50*EU6R7B8G9SDZ', '12K3W4R50*EU6R7B8G9SDZ')),
+    ('S', ('S',)),
+    ('S-', ('S',)),
+    ('-S', ('-S',)),
+    ('ES', ('ES',)),
+    ('-ES', ('ES',)),
+    ('TW-EPBL', ('TWEPBL',)),
+    ('TWEPBL', ('TWEPBL',)),
+    ('RR', ('R-R',)),
+    ('19', ('1-9',)),
+    ('14', ('14',)),
+    ('146', ('14-6',)),
+    ('67', ('-67',)),
+    ('120-7', ('1207',)),
+    ('6', ('-6',)),
+    ('9', ('-9',)),
+    ('5', ('5',)),
+    ('0', ('0',)),
+    ('456', ('456',)),
+    ('46', ('4-6',)),
+    ('4*6', ('4*6',)),
+    ('456', ('456',)),
+    ('S46', ('14-6',)),
+    ('T-EFT/-G', ('TEFT', '-G')),
+    ('T-EFT/G', ('TEFT', '-G')),
+    ('/PRE', ('', 'PRE')),
+    ('S--T', ('S-T',)),
+    ('U/E/Z/D', ('U', 'E', '-Z', '-D')),
+    ('F/G/Z/D', ('-F', '-G', '-Z', '-D')),
+    # Number key.
+    ('#', ('#',)),
+    ('#S', ('1',)),
+    ('#A', ('5',)),
+    ('#0', ('0',)),
+    ('#6', ('-6',)),
+    # Implicit hyphens.
+    ('SA-', ('SA',)),
+    ('SA-R', ('SAR',)),
+    ('O', ('O',)),
+    ('O-', ('O',)),
+    ('S*-R', ('S*R',)),
+    # Invalid.
+    ('S' * 65, ValueError),
+    ('TEFT//-G', ValueError),
+    ('//TEFT/', ValueError),
+    ('TEFT/', ValueError),
+    ('SRALD/invalid', ValueError),
+    ('SRALD//invalid', ValueError),
+    ('S-*R', ValueError),
+    ('-O-', ValueError),
+    ('-O', ValueError),
+)
+
+@pytest.mark.parametrize('steno, expected', NORMALIZE_STENO_TESTS)
+def test_normalize_steno(english_stroke_class, steno, expected):
+    normalize_steno = english_stroke_class._helper.normalize_steno
+    if inspect.isclass(expected):
+        with pytest.raises(expected):
+            normalize_steno(steno)
+        return
+    assert normalize_steno(steno) == expected
+
+STENO_SORT_KEY_TESTS = (
+    ('12', b'\x01\x02\x03'),
+    ('/12', b'\x00\x01\x02\x03'),
+    ('TEFT', b'\x03\x0c\x0e\x14'),
+    ('/TEFT', b'\x00\x03\x0c\x0e\x14'),
+    ('12/TEFT', b'\x01\x02\x03\x00\x03\x0c\x0e\x14'),
+    ('TEFT/12', b'\x03\x0c\x0e\x14\x00\x01\x02\x03'),
+)
+
+@pytest.mark.parametrize('steno, sort_key', STENO_SORT_KEY_TESTS)
+def test_steno_sort_key_1(english_stroke_class, steno, sort_key):
+    normalize_steno = english_stroke_class._helper.normalize_steno
+    steno_to_sort_key = english_stroke_class._helper.steno_to_sort_key
+    assert steno_to_sort_key(steno) == sort_key
+
+def test_steno_sort_key_2(english_stroke_class):
+    normalize_steno = english_stroke_class._helper.normalize_steno
+    steno_to_sort_key = english_stroke_class._helper.steno_to_sort_key
+    steno_list = []
+    for steno, expected in NORMALIZE_STENO_TESTS:
+        if inspect.isclass(expected):
+            with pytest.raises(expected):
+                steno_to_sort_key(steno)
+            continue
+        steno_list.append('/'.join(normalize_steno(steno)))
+    sorted_with_stroke_sort = [
+        '/'.join(map(str, strokes))
+        for strokes in sorted(
+            tuple(map(english_stroke_class, steno.split('/')))
+            for steno in steno_list
+        )
+    ]
+    assert sorted(steno_list, key=steno_to_sort_key) == sorted_with_stroke_sort
