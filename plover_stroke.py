@@ -186,6 +186,17 @@ class BaseStroke(int):
             return cls.from_steno(value)
         return cls.from_keys(value)
 
+    def has_number(self):
+        "returns true if the stroke has keys that can be replaced with numbers"
+        if self.NUMBER_KEY is None:
+            return False
+        v = int(self)
+        nm = self.KEY_TO_MASK[self.NUMBER_KEY]
+        return (
+            (v & self.NUMBER_MASK)
+            and v & nm and v != nm
+        )
+
     def isnumber(self):
         if self.NUMBER_KEY is None:
             return False
@@ -247,13 +258,14 @@ class BaseStroke(int):
             v &= ~m
 
     def __repr__(self):
-        isnumber = self.isnumber()
+        has_number = self.has_number()
         left = ''
         middle = ''
         right = ''
         for k in self:
-            if isnumber:
+            if has_number and self.KEY_TO_MASK[k] & self.NUMBER_MASK:
                 if k == self.NUMBER_KEY:
+                    left += k
                     continue
                 k = self.KEY_TO_NUMBER[k]
             l = k.replace('-', '')

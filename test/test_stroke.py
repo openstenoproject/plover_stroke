@@ -139,12 +139,14 @@ NEW_TESTS = (
         '#',
         0b00000000000000000000001,
         False,
+        False,
     ),
     (
         'T- -B -P S-',
         'S- T- -P -B',
         'ST-PB',
         0b00000011000000000000110,
+        False,
         False,
     ),
     (
@@ -153,12 +155,14 @@ NEW_TESTS = (
         'AOE',
         0b00000000000101100000000,
         False,
+        False,
     ),
     (
         '-Z *',
         '* -Z',
         '*Z',
         0b10000000000010000000000,
+        False,
         False,
     ),
     (
@@ -167,19 +171,22 @@ NEW_TESTS = (
         'R-R',
         0b00000000100000010000000,
         False,
+        False,
     ),
     (
         'S- -P O- # T-',
         '# S- T- O- -P',
-        '120-7',
+        '#120-7',
         0b00000001000001000000111,
+        True,
         True,
     ),
     (
         '1- 2- 0- -7',
         '# S- T- O- -P',
-        '120-7',
+        '#120-7',
         0b00000001000001000000111,
+        True,
         True,
     ),
     (
@@ -188,11 +195,29 @@ NEW_TESTS = (
         '-FL',
         0b00000100010000000000000,
         False,
+        False,
     ),
+    (
+        '-B H- #',
+        '# H- -B',
+        '#4-B',
+        # ZDSTGLBPRFUE*OARHWPKTS#
+        0b00000010000000001000001,
+        False,
+        True,
+    ),
+    (
+        'S- -D P- -Z -U -G -B K- -T T- -L # -S A- -F -P R- * W- O- H- -E -R',
+        '# S- T- K- P- W- H- R- A- O- * -E -U -F -R -P -B -L -G -T -S -D -Z',
+        '#12K3W4R50*EU6R7B8G9SDZ',
+        0b11111111111111111111111,
+        False,
+        True,
+    )
 )
 
-@pytest.mark.parametrize('in_keys, keys, rtfcre, value, isnumber', NEW_TESTS)
-def test_new(english_stroke_class, in_keys, keys, rtfcre, value, isnumber):
+@pytest.mark.parametrize('in_keys, keys, rtfcre, value, isnumber, has_number', NEW_TESTS)
+def test_new(english_stroke_class, in_keys, keys, rtfcre, value, isnumber, has_number):
     in_keys = in_keys.split()
     keys = keys.split()
     for init_arg in (in_keys, rtfcre, value):
@@ -201,6 +226,7 @@ def test_new(english_stroke_class, in_keys, keys, rtfcre, value, isnumber):
         assert s.keys() == keys
         assert s.isnumber() == isnumber
         assert str(s) == rtfcre
+        assert s.has_number() == has_number
 
 HASH_TESTS = (
     ('#',    0b00000000000000000000001),
