@@ -71,7 +71,7 @@ sorted(map(Stroke, 'AOE ST-PB *Z # R-R'.split()))
 
 ## Release history
 
-### 1.0.0 [unreleased]
+### 1.0.0
 
 * drop `Stroke.xrange` and `Stroke.xsuffixes` methods
 * `Stroke.keys()` now return a tuple
