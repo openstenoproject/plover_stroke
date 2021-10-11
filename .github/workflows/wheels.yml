@@ -33,7 +33,7 @@ jobs:
 
       - name: Build wheels
         env:
-          CIBW_BUILD: "cp3?-*"
+          CIBW_BUILD: "cp3?-* cp31?-*"
           CIBW_SKIP: "*-manylinux_i686 *-win32"
           CIBW_BUILD_VERBOSITY: "1"
           CIBW_ENVIRONMENT_LINUX: "CFLAGS=-g0 LDFLAGS=-Wl,-strip-debug"
