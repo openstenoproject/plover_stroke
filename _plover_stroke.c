@@ -30,12 +30,14 @@ typedef int64_t  stroke_int_t;
 # define PyLong_FromStrokeUint  PyLong_FromUnsignedLong
 # define PyLong_FromStrokeInt   PyLong_FromLong
 # define T_STROKE_UINT          T_ULONG
+# define STROKE_UINT_FMT        "%#lx"
 # define STROKE_1               1UL
 #elif ULLONG_MAX == ((1ULL << 64) - 1)
 # define PyLong_AsStrokeUint    PyLong_AsUnsignedLongLong
 # define PyLong_FromStrokeUint  PyLong_FromUnsignedLongLong
 # define PyLong_FromStrokeInt   PyLong_FromLongLong
 # define T_STROKE_UINT          T_ULONGLONG
+# define STROKE_UINT_FMT        "%#llx"
 # define STROKE_1               1ULL
 #else
 # error no suitable 64bits type!
@@ -209,7 +211,10 @@ static stroke_uint_t stroke_from_int(const stroke_helper_t *helper, PyObject *in
 
     if ((mask >> helper->num_keys))
     {
-        PyErr_Format(PyExc_ValueError, "invalid keys mask: %R", integer);
+        char error[40];
+
+        snprintf(error, sizeof (error), "invalid keys mask: "STROKE_UINT_FMT, mask);
+        PyErr_SetString(PyExc_ValueError, error);
         return INVALID_STROKE;
     }
 
