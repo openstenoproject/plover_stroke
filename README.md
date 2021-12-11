@@ -71,6 +71,11 @@ sorted(map(Stroke, 'AOE ST-PB *Z # R-R'.split()))
 
 ## Release history
 
+### 1.0.1
+
+* fix exception in case of invalid keys mask
+
+
 ### 1.0.0
 
 * drop `Stroke.xrange` and `Stroke.xsuffixes` methods
