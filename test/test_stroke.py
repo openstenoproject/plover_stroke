@@ -54,8 +54,11 @@ def test_setup_minimal(stroke_class):
     helper = stroke_class._helper
     assert helper.num_keys             == len(keys)
     assert helper.keys                 == tuple(keys)
-    assert helper.letters              == ''.join(keys).replace('-', '')
-    assert helper.numbers              == ''.join(keys).replace('-', '')
+    assert helper.implicit_hyphen_keys == set('A- O- * -E -U -F'.split())
+    assert helper.number_key           == None
+    assert helper.numbers              == None
+    assert helper.key_letter           == ''.join(keys).replace('-', '')
+    assert helper.key_number           == ''.join(keys).replace('-', '')
     assert helper.implicit_hyphen_mask == 0b00000000011111100000000
     assert helper.number_key_mask      == 0b00000000000000000000000
     assert helper.numbers_mask         == 0b00000000000000000000000
@@ -75,8 +78,11 @@ def test_setup_explicit(stroke_class):
     helper = stroke_class._helper
     assert helper.num_keys             == len(keys)
     assert helper.keys                 == tuple(keys)
-    assert helper.letters              == ''.join(keys).replace('-', '')
-    assert helper.numbers              == ''.join(keys).replace('-', '')
+    assert helper.implicit_hyphen_keys == set(implicit_hyphen_keys)
+    assert helper.number_key           == None
+    assert helper.numbers              == None
+    assert helper.key_letter           == ''.join(keys).replace('-', '')
+    assert helper.key_number           == ''.join(keys).replace('-', '')
     assert helper.implicit_hyphen_mask == 0b00000000001111100000000
     assert helper.number_key_mask      == 0b00000000000000000000000
     assert helper.numbers_mask         == 0b00000000000000000000000
@@ -109,8 +115,11 @@ def test_setup_explicit_with_numbers(stroke_class):
     helper = stroke_class._helper
     assert helper.num_keys             == len(keys)
     assert helper.keys                 == tuple(keys)
-    assert helper.letters              == ''.join(keys).replace('-', '')
-    assert helper.numbers              == ''.join(numbers.get(k, k) for k in keys).replace('-', '')
+    assert helper.implicit_hyphen_keys == set(implicit_hyphen_keys)
+    assert helper.number_key           == number_key
+    assert helper.numbers              == numbers
+    assert helper.key_letter           == ''.join(keys).replace('-', '')
+    assert helper.key_number           == ''.join(numbers.get(k, k) for k in keys).replace('-', '')
     assert helper.implicit_hyphen_mask == 0b00000000001111100000000
     assert helper.number_key_mask      == 0b00000000000000000000001
     assert helper.numbers_mask         == 0b00010101010001101010110

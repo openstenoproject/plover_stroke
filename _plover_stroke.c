@@ -546,25 +546,25 @@ static PyObject *normalize_stroke_ucs4(const stroke_helper_t *helper,
     return stroke_to_str(helper, mask);
 }
 
-static PyObject *key_str(const stroke_helper_t *helper, unsigned key_index)
+static PyObject *key_str(const stroke_helper_t *helper, unsigned key_index, int number)
 {
     Py_UCS4  key_ucs4[2];
     unsigned key_ucs4_len;
 
+    key_ucs4[0] = (number ? helper->key_number : helper->key_letter)[key_index];
+
     switch (helper->key_side[key_index])
     {
     case KEY_SIDE_NONE:
-        key_ucs4[0] = helper->key_letter[key_index];
         key_ucs4_len = 1;
         break;
     case KEY_SIDE_LEFT:
-        key_ucs4[0] = helper->key_letter[key_index];
         key_ucs4[1] = '-';
         key_ucs4_len = 2;
         break;
     case KEY_SIDE_RIGHT:
+        key_ucs4[1] = key_ucs4[0];
         key_ucs4[0] = '-';
-        key_ucs4[1] = helper->key_letter[key_index];
         key_ucs4_len = 2;
         break;
     default:
@@ -785,39 +785,6 @@ static PyObject *StrokeHelper_setup(StrokeHelper *self, PyObject *args, PyObject
     self->helper = helper;
 
     Py_RETURN_NONE;
-}
-
-static PyObject *StrokeHelper_get_letters(const StrokeHelper *self, void *Py_UNUSED(closure))
-{
-    return PyUnicode_FromKindAndData(PyUnicode_4BYTE_KIND, self->helper.key_letter, self->helper.num_keys);
-}
-
-static PyObject *StrokeHelper_get_numbers(const StrokeHelper *self, void *Py_UNUSED(closure))
-{
-    return PyUnicode_FromKindAndData(PyUnicode_4BYTE_KIND, self->helper.key_number, self->helper.num_keys);
-}
-
-static PyObject *StrokeHelper_get_keys(const StrokeHelper *self, void *Py_UNUSED(closure))
-{
-    PyObject *keys_tuple;
-    PyObject *key;
-
-    keys_tuple = PyTuple_New(self->helper.num_keys);
-    if (keys_tuple == NULL)
-        return NULL;
-
-    for (unsigned k = 0; k < self->helper.num_keys; ++k)
-    {
-        key = key_str(&self->helper, k);
-        if (key == NULL)
-        {
-            Py_DECREF(keys_tuple);
-            return NULL;
-        }
-        PyTuple_SET_ITEM(keys_tuple, k, key);
-    }
-
-    return keys_tuple;
 }
 
 #define STROKE_CMP_FN(FnName, Op) \
@@ -1222,7 +1189,7 @@ static PyObject *StrokeHelper_stroke_first_key(const StrokeHelper *self, PyObjec
 
     first_key = popcount(lsb(mask) - 1);
 
-    return key_str(&self->helper, first_key);
+    return key_str(&self->helper, first_key, 0);
 }
 
 static PyObject *StrokeHelper_stroke_last_key(const StrokeHelper *self, PyObject *stroke)
@@ -1242,7 +1209,7 @@ static PyObject *StrokeHelper_stroke_last_key(const StrokeHelper *self, PyObject
 
     last_key = popcount(msb(mask) - 1);
 
-    return key_str(&self->helper, last_key);
+    return key_str(&self->helper, last_key, 0);
 }
 
 static PyObject *StrokeHelper_stroke_invert(const StrokeHelper *self, PyObject *stroke)
@@ -1323,11 +1290,113 @@ static PyObject *StrokeHelper_stroke_to_sort_key(const StrokeHelper *self, PyObj
     return PyBytes_FromStringAndSize(sort_key, sort_key_len);
 }
 
+static PyObject *StrokeHelper_get_keys(const StrokeHelper *self, void *Py_UNUSED(closure))
+{
+    PyObject *keys_tuple;
+    PyObject *key;
+
+    keys_tuple = PyTuple_New(self->helper.num_keys);
+    if (keys_tuple == NULL)
+        return NULL;
+
+    for (unsigned k = 0; k < self->helper.num_keys; ++k)
+    {
+        key = key_str(&self->helper, k, 0);
+        if (key == NULL)
+        {
+            Py_DECREF(keys_tuple);
+            return NULL;
+        }
+        PyTuple_SET_ITEM(keys_tuple, k, key);
+    }
+
+    return keys_tuple;
+}
+
+static PyObject *StrokeHelper_get_implicit_hyphen_keys(const StrokeHelper *self, void *Py_UNUSED(closure))
+{
+    PyObject *implicit_hyphen_keys;
+    PyObject *key;
+
+    implicit_hyphen_keys = PySet_New(NULL);
+    if (implicit_hyphen_keys == NULL)
+        return NULL;
+
+    for (unsigned k = 0; k < self->helper.num_keys; ++k)
+    {
+        if (!(self->helper.implicit_hyphen_mask & (1 << k)))
+            continue;
+        key = key_str(&self->helper, k, 0);
+        if (key == NULL || PySet_Add(implicit_hyphen_keys, key))
+        {
+            Py_DECREF(implicit_hyphen_keys);
+            Py_XDECREF(key);
+            return NULL;
+        }
+    }
+
+    return implicit_hyphen_keys;
+}
+
+static PyObject *StrokeHelper_get_number_key(const StrokeHelper *self, void *Py_UNUSED(closure))
+{
+    if (!self->helper.number_key_mask)
+        Py_RETURN_NONE;
+
+    return StrokeHelper_stroke_to_steno(self, PyLong_FromStrokeUint(self->helper.number_key_mask));
+}
+
+static PyObject *StrokeHelper_get_numbers(const StrokeHelper *self, void *Py_UNUSED(closure))
+{
+    PyObject *numbers;
+    PyObject *key;
+    PyObject *key_number;
+
+    if (!self->helper.number_key_mask)
+        Py_RETURN_NONE;
+
+    numbers = PyDict_New();
+    if (numbers == NULL)
+        return NULL;
+
+    for (unsigned k = 0; k < self->helper.num_keys; ++k)
+    {
+        if (self->helper.key_letter[k] == self->helper.key_number[k])
+            continue;
+        key = key_str(&self->helper, k, 0);
+        key_number = key_str(&self->helper, k, 1);
+        if (key == NULL || key_number == NULL || PyDict_SetItem(numbers, key, key_number))
+        {
+            Py_DECREF(numbers);
+            Py_XDECREF(key_number);
+            Py_XDECREF(key);
+            return NULL;
+        }
+    }
+
+    return numbers;
+}
+
+static PyObject *StrokeHelper_get_key_letter(const StrokeHelper *self, void *Py_UNUSED(closure))
+{
+    return PyUnicode_FromKindAndData(PyUnicode_4BYTE_KIND, self->helper.key_letter, self->helper.num_keys);
+}
+
+static PyObject *StrokeHelper_get_key_number(const StrokeHelper *self, void *Py_UNUSED(closure))
+{
+    return PyUnicode_FromKindAndData(PyUnicode_4BYTE_KIND, self->helper.key_number, self->helper.num_keys);
+}
+
 static PyGetSetDef StrokeHelper_getset[] =
 {
+    // For getting back the arguments passed to setup.
     {"keys", (getter)StrokeHelper_get_keys, NULL, "List of supported keys.", NULL},
-    {"letters", (getter)StrokeHelper_get_letters, NULL, "Letters for the supported keys.", NULL},
-    {"numbers", (getter)StrokeHelper_get_numbers, NULL, "Numbers for the supported keys.", NULL},
+    {"implicit_hyphen_keys", (getter)StrokeHelper_get_implicit_hyphen_keys, NULL, "Set of implicit hyphen keys.", NULL},
+    {"number_key", (getter)StrokeHelper_get_number_key, NULL, "Number key.", NULL},
+    {"numbers", (getter)StrokeHelper_get_numbers, NULL, "Mapping of key to number.", NULL},
+    // Other derived fields.
+    {"key_letter", (getter)StrokeHelper_get_key_letter, NULL, "Letters for the supported keys.", NULL},
+    {"key_number", (getter)StrokeHelper_get_key_number, NULL, "Numbers for the supported keys.", NULL},
     {NULL}
 };
 
