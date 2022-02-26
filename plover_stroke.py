@@ -7,7 +7,8 @@ class BaseStroke(int):
 
     @classmethod
     def setup(cls, keys, implicit_hyphen_keys=None,
-              number_key=None, numbers=None):
+              number_key=None, numbers=None,
+              feral_number_key=False):
         cls._helper = StrokeHelper()
         if number_key is None:
             assert numbers is None
@@ -16,7 +17,8 @@ class BaseStroke(int):
         if implicit_hyphen_keys is not None and not isinstance(implicit_hyphen_keys, set):
             implicit_hyphen_keys = set(implicit_hyphen_keys)
         cls._helper.setup(keys, implicit_hyphen_keys=implicit_hyphen_keys,
-                          number_key=number_key, numbers=numbers)
+                          number_key=number_key, numbers=numbers,
+                          feral_number_key=feral_number_key)
 
     @classmethod
     def from_steno(cls, steno):

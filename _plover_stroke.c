@@ -69,6 +69,7 @@ typedef struct
     key_side_t    key_side[MAX_KEYS];
     Py_UCS4       key_letter[MAX_KEYS];
     Py_UCS4       key_number[MAX_KEYS];
+    Py_UCS4       feral_number_key_letter;
     stroke_uint_t implicit_hyphen_mask;
     stroke_uint_t number_key_mask;
     stroke_uint_t numbers_mask;
@@ -171,13 +172,22 @@ static stroke_uint_t stroke_from_ucs4(const stroke_helper_t *helper,
     int            key_index;
     unsigned       stroke_index;
     const Py_UCS4 *possible_letters;
+    int            implicit_number_key;
 
     mask = 0;
     key_index = -1;
+    implicit_number_key = 0;
 
     for (stroke_index = 0; stroke_index < stroke_len; ++stroke_index)
     {
         letter = stroke_ucs4[stroke_index];
+        if (letter == helper->feral_number_key_letter)
+        {
+            if ((mask & helper->number_key_mask))
+                return INVALID_STROKE;
+            mask |= helper->number_key_mask;
+            continue;
+        }
         if (letter == '-')
         {
             if (key_index > (int)helper->right_keys_index)
@@ -187,7 +197,7 @@ static stroke_uint_t stroke_from_ucs4(const stroke_helper_t *helper,
         }
         if ('0' <= letter && letter <= '9')
         {
-            mask |= helper->number_key_mask;
+            implicit_number_key = 1;
             possible_letters = helper->key_number;
         }
         else
@@ -201,6 +211,9 @@ static stroke_uint_t stroke_from_ucs4(const stroke_helper_t *helper,
         } while (letter != possible_letters[key_index]);
         mask |= STROKE_1 << key_index;
     }
+
+    if (implicit_number_key)
+        mask |= helper->number_key_mask;
 
     return mask;
 }
@@ -576,11 +589,12 @@ static PyObject *key_str(const stroke_helper_t *helper, unsigned key_index, int 
 
 static PyObject *StrokeHelper_setup(StrokeHelper *self, PyObject *args, PyObject *kwargs)
 {
-    static char *kwlist[] = {"keys", "implicit_hyphen_keys", "number_key", "numbers", NULL};
+    static char *kwlist[] = {"keys", "implicit_hyphen_keys", "number_key", "numbers", "feral_number_key", NULL};
 
     PyObject        *implicit_hyphen_keys = Py_None;
     PyObject        *number_key = Py_None;
     PyObject        *numbers = Py_None;
+    int              feral_number_key = 0;
     PyObject        *keys_sequence;
     Py_ssize_t       num_keys;
     stroke_uint_t    unique_letters_mask;
@@ -591,9 +605,10 @@ static PyObject *StrokeHelper_setup(StrokeHelper *self, PyObject *args, PyObject
     key_side_t       key_side;
     stroke_helper_t  helper;
 
-    if (!PyArg_ParseTupleAndKeywords(args, kwargs, "O|OOO", kwlist,
+    if (!PyArg_ParseTupleAndKeywords(args, kwargs, "O|OOOp", kwlist,
                                      &keys_sequence, &implicit_hyphen_keys,
-                                     &number_key, &numbers))
+                                     &number_key, &numbers,
+                                     &feral_number_key))
         return NULL;
 
     keys_sequence = PySequence_Fast(keys_sequence, "expected `keys` to be a list or tuple");
@@ -612,6 +627,12 @@ static PyObject *StrokeHelper_setup(StrokeHelper *self, PyObject *args, PyObject
         if (numbers != Py_None)
         {
             PyErr_SetString(PyExc_TypeError, "expected `numbers` to be None (since `number_key` is None)");
+            return NULL;
+        }
+
+        if (feral_number_key)
+        {
+            PyErr_SetString(PyExc_TypeError, "expected `feral_number_key` to be False (since `number_key` is None)");
             return NULL;
         }
 
@@ -648,6 +669,7 @@ static PyObject *StrokeHelper_setup(StrokeHelper *self, PyObject *args, PyObject
 
     helper.num_keys = (unsigned)num_keys;
     helper.right_keys_index = helper.num_keys;
+    helper.feral_number_key_letter = 0;
     helper.implicit_hyphen_mask = 0;
     helper.number_key_mask = 0;
     helper.numbers_mask = 0;
@@ -780,6 +802,17 @@ static PyObject *StrokeHelper_setup(StrokeHelper *self, PyObject *args, PyObject
             ;
 
         helper.implicit_hyphen_mask = unique_letters_mask & ~((STROKE_1 << k) - 1) & ((STROKE_1 << l) - 1);
+    }
+
+    if (feral_number_key)
+    {
+        if (helper.number_key_mask & helper.implicit_hyphen_mask)
+        {
+            PyErr_SetString(PyExc_ValueError, "invalid `number_key`: cannot be both feral and an implicit hyphen key");
+            return NULL;
+        }
+
+        helper.feral_number_key_letter = number_key_letter;
     }
 
     self->helper = helper;
@@ -1377,6 +1410,11 @@ static PyObject *StrokeHelper_get_numbers(const StrokeHelper *self, void *Py_UNU
     return numbers;
 }
 
+static PyObject *StrokeHelper_get_feral_number_key(const StrokeHelper *self, void *Py_UNUSED(closure))
+{
+    return PyBool_FromLong(self->helper.feral_number_key_letter != 0);
+}
+
 static PyObject *StrokeHelper_get_key_letter(const StrokeHelper *self, void *Py_UNUSED(closure))
 {
     return PyUnicode_FromKindAndData(PyUnicode_4BYTE_KIND, self->helper.key_letter, self->helper.num_keys);
@@ -1387,6 +1425,14 @@ static PyObject *StrokeHelper_get_key_number(const StrokeHelper *self, void *Py_
     return PyUnicode_FromKindAndData(PyUnicode_4BYTE_KIND, self->helper.key_number, self->helper.num_keys);
 }
 
+static PyObject *StrokeHelper_get_feral_number_key_letter(const StrokeHelper *self, void *Py_UNUSED(closure))
+{
+    if (self->helper.feral_number_key_letter == 0)
+        Py_RETURN_NONE;
+
+    return PyUnicode_FromKindAndData(PyUnicode_4BYTE_KIND, &self->helper.feral_number_key_letter, 1);
+}
+
 static PyGetSetDef StrokeHelper_getset[] =
 {
     // For getting back the arguments passed to setup.
@@ -1394,9 +1440,11 @@ static PyGetSetDef StrokeHelper_getset[] =
     {"implicit_hyphen_keys", (getter)StrokeHelper_get_implicit_hyphen_keys, NULL, "Set of implicit hyphen keys.", NULL},
     {"number_key", (getter)StrokeHelper_get_number_key, NULL, "Number key.", NULL},
     {"numbers", (getter)StrokeHelper_get_numbers, NULL, "Mapping of key to number.", NULL},
+    {"feral_number_key", (getter)StrokeHelper_get_feral_number_key, NULL, "Is the number key feral?", NULL},
     // Other derived fields.
     {"key_letter", (getter)StrokeHelper_get_key_letter, NULL, "Letters for the supported keys.", NULL},
     {"key_number", (getter)StrokeHelper_get_key_number, NULL, "Numbers for the supported keys.", NULL},
+    {"feral_number_key_letter", (getter)StrokeHelper_get_feral_number_key_letter, NULL, "Letter for the feral number key.", NULL},
     {NULL}
 };
 

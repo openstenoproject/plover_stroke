@@ -37,7 +37,8 @@ def english_stroke_class(stroke_class):
             '-P': '-7',
             '-L': '-8',
             '-T': '-9',
-        }
+        },
+        True,
     )
     return stroke_class
 
@@ -52,17 +53,19 @@ def test_setup_minimal(stroke_class):
     '''.split()
     stroke_class.setup(keys)
     helper = stroke_class._helper
-    assert helper.num_keys             == len(keys)
-    assert helper.keys                 == tuple(keys)
-    assert helper.implicit_hyphen_keys == set('A- O- * -E -U -F'.split())
-    assert helper.number_key           == None
-    assert helper.numbers              == None
-    assert helper.key_letter           == ''.join(keys).replace('-', '')
-    assert helper.key_number           == ''.join(keys).replace('-', '')
-    assert helper.implicit_hyphen_mask == 0b00000000011111100000000
-    assert helper.number_key_mask      == 0b00000000000000000000000
-    assert helper.numbers_mask         == 0b00000000000000000000000
-    assert helper.right_keys_index     == keys.index('-E')
+    assert helper.num_keys                == len(keys)
+    assert helper.keys                    == tuple(keys)
+    assert helper.implicit_hyphen_keys    == set('A- O- * -E -U -F'.split())
+    assert helper.number_key              == None
+    assert helper.numbers                 == None
+    assert helper.feral_number_key        == False
+    assert helper.feral_number_key_letter == None
+    assert helper.key_letter              == ''.join(keys).replace('-', '')
+    assert helper.key_number              == ''.join(keys).replace('-', '')
+    assert helper.implicit_hyphen_mask    == 0b00000000011111100000000
+    assert helper.number_key_mask         == 0b00000000000000000000000
+    assert helper.numbers_mask            == 0b00000000000000000000000
+    assert helper.right_keys_index        == keys.index('-E')
 
 def test_setup_explicit(stroke_class):
     keys = '''
@@ -76,17 +79,19 @@ def test_setup_explicit(stroke_class):
     implicit_hyphen_keys = 'A- O- * -E -U'.split()
     stroke_class.setup(keys, implicit_hyphen_keys)
     helper = stroke_class._helper
-    assert helper.num_keys             == len(keys)
-    assert helper.keys                 == tuple(keys)
-    assert helper.implicit_hyphen_keys == set(implicit_hyphen_keys)
-    assert helper.number_key           == None
-    assert helper.numbers              == None
-    assert helper.key_letter           == ''.join(keys).replace('-', '')
-    assert helper.key_number           == ''.join(keys).replace('-', '')
-    assert helper.implicit_hyphen_mask == 0b00000000001111100000000
-    assert helper.number_key_mask      == 0b00000000000000000000000
-    assert helper.numbers_mask         == 0b00000000000000000000000
-    assert helper.right_keys_index     == keys.index('-E')
+    assert helper.num_keys                == len(keys)
+    assert helper.keys                    == tuple(keys)
+    assert helper.implicit_hyphen_keys    == set(implicit_hyphen_keys)
+    assert helper.number_key              == None
+    assert helper.numbers                 == None
+    assert helper.feral_number_key        == False
+    assert helper.feral_number_key_letter == None
+    assert helper.key_letter              == ''.join(keys).replace('-', '')
+    assert helper.key_number              == ''.join(keys).replace('-', '')
+    assert helper.implicit_hyphen_mask    == 0b00000000001111100000000
+    assert helper.number_key_mask         == 0b00000000000000000000000
+    assert helper.numbers_mask            == 0b00000000000000000000000
+    assert helper.right_keys_index        == keys.index('-E')
 
 def test_setup_explicit_with_numbers(stroke_class):
     keys = '''
@@ -113,17 +118,58 @@ def test_setup_explicit_with_numbers(stroke_class):
     }
     stroke_class.setup(keys, implicit_hyphen_keys, number_key, numbers)
     helper = stroke_class._helper
-    assert helper.num_keys             == len(keys)
-    assert helper.keys                 == tuple(keys)
-    assert helper.implicit_hyphen_keys == set(implicit_hyphen_keys)
-    assert helper.number_key           == number_key
-    assert helper.numbers              == numbers
-    assert helper.key_letter           == ''.join(keys).replace('-', '')
-    assert helper.key_number           == ''.join(numbers.get(k, k) for k in keys).replace('-', '')
-    assert helper.implicit_hyphen_mask == 0b00000000001111100000000
-    assert helper.number_key_mask      == 0b00000000000000000000001
-    assert helper.numbers_mask         == 0b00010101010001101010110
-    assert helper.right_keys_index     == keys.index('-E')
+    assert helper.num_keys                == len(keys)
+    assert helper.keys                    == tuple(keys)
+    assert helper.implicit_hyphen_keys    == set(implicit_hyphen_keys)
+    assert helper.number_key              == number_key
+    assert helper.numbers                 == numbers
+    assert helper.feral_number_key        == False
+    assert helper.feral_number_key_letter == None
+    assert helper.key_letter              == ''.join(keys).replace('-', '')
+    assert helper.key_number              == ''.join(numbers.get(k, k) for k in keys).replace('-', '')
+    assert helper.implicit_hyphen_mask    == 0b00000000001111100000000
+    assert helper.number_key_mask         == 0b00000000000000000000001
+    assert helper.numbers_mask            == 0b00010101010001101010110
+    assert helper.right_keys_index        == keys.index('-E')
+
+def test_setup_explicit_with_feral_number_key(stroke_class):
+    keys = '''
+        #
+        S- T- K- P- W- H- R-
+        A- O-
+        *
+        -E -U
+        -F -R -P -B -L -G -T -S -D -Z
+    '''.split()
+    implicit_hyphen_keys = 'A- O- * -E -U'.split()
+    number_key = '#'
+    numbers = {
+        'S-': '1-',
+        'T-': '2-',
+        'P-': '3-',
+        'H-': '4-',
+        'A-': '5-',
+        'O-': '0-',
+        '-F': '-6',
+        '-P': '-7',
+        '-L': '-8',
+        '-T': '-9',
+    }
+    stroke_class.setup(keys, implicit_hyphen_keys, number_key, numbers, True)
+    helper = stroke_class._helper
+    assert helper.num_keys                == len(keys)
+    assert helper.keys                    == tuple(keys)
+    assert helper.implicit_hyphen_keys    == set(implicit_hyphen_keys)
+    assert helper.number_key              == number_key
+    assert helper.numbers                 == numbers
+    assert helper.feral_number_key        == True
+    assert helper.feral_number_key_letter == '#'
+    assert helper.key_letter              == ''.join(keys).replace('-', '')
+    assert helper.key_number              == ''.join(numbers.get(k, k) for k in keys).replace('-', '')
+    assert helper.implicit_hyphen_mask    == 0b00000000001111100000000
+    assert helper.number_key_mask         == 0b00000000000000000000001
+    assert helper.numbers_mask            == 0b00010101010001101010110
+    assert helper.right_keys_index        == keys.index('-E')
 
 IMPLICIT_HYPHENS_DETECTION_TESTS = (
     ('''
@@ -262,6 +308,69 @@ INVALID_PARAMS_TESTS = (
      ValueError,
      "invalid `implicit_hyphen_keys`: some letters are not unique"
     ),
+    ('''
+     #
+     S- T- K- P- W- H- R-
+     A- O-
+     *
+     -E -U
+     -F -R -P -B -L -G -T -S -D -Z
+     '''.split(),
+     dict(feral_number_key=True),
+     TypeError,
+     "expected `feral_number_key` to be False (since `number_key` is None)"
+    ),
+    ('''
+     S- T- K- P- W- H- R-
+     A- O-
+     *
+     #
+     -E -U
+     -F -R -P -B -L -G -T -S -D -Z
+     '''.split(),
+     dict(number_key='#',
+          numbers={
+              'S-': '1-',
+              'T-': '2-',
+              'P-': '3-',
+              'H-': '4-',
+              'A-': '5-',
+              'O-': '0-',
+              '-F': '-6',
+              '-P': '-7',
+              '-L': '-8',
+              '-T': '-9',
+          },
+          feral_number_key=True),
+     ValueError,
+     "invalid `number_key`: cannot be both feral and an implicit hyphen key"
+    ),
+    ('''
+     S- T- K- P- W- H- R-
+     A- O-
+     *
+     #
+     -E -U
+     -F -R -P -B -L -G -T -S -D -Z
+     '''.split(),
+     dict(implicit_hyphen_keys='A- O- * # -E -U -F'.split(),
+          number_key='#',
+          numbers={
+              'S-': '1-',
+              'T-': '2-',
+              'P-': '3-',
+              'H-': '4-',
+              'A-': '5-',
+              'O-': '0-',
+              '-F': '-6',
+              '-P': '-7',
+              '-L': '-8',
+              '-T': '-9',
+          },
+          feral_number_key=True),
+     ValueError,
+     "invalid `number_key`: cannot be both feral and an implicit hyphen key"
+    ),
 )
 
 @pytest.mark.parametrize('keys, kwargs, exception, match', INVALID_PARAMS_TESTS)
@@ -363,6 +472,22 @@ NEW_TESTS = (
         0b11111111111111111111111,
         True,
         False,
+    ),
+    (
+        '1- 2- -E -7', '12E7#',
+        '# S- T- -E -P',
+        '12E7',
+        0b00000001000100000000111,
+        True,
+        False,
+    ),
+    (
+        '1- 2- 0- -7', '12#07',
+        '# S- T- O- -P',
+        '1207',
+        0b00000001000001000000111,
+        True,
+        True,
     ),
 )
 
@@ -565,7 +690,7 @@ def test_no_numbers_system():
     )
     s1 = Stroke(23)
 
-NORMALIZE_STENO_TESTS = (
+COMMON_NORMALIZE_STENO_TESTS = (
     ('#STKPWHRAO*-EUFRPBLGTSDZ/12K3W4R50*-EU6R7B8G9SDZ',
      ('12K3W4R50*EU6R7B8G9SDZ', '12K3W4R50*EU6R7B8G9SDZ')),
     ('S', ('S',)),
@@ -618,11 +743,72 @@ NORMALIZE_STENO_TESTS = (
     ('S-*R', ValueError),
     ('-O-', ValueError),
     ('-O', ValueError),
+    ('#S#46', ValueError),
+    ('##', ValueError),
+)
+
+NORMALIZE_STENO_TESTS = COMMON_NORMALIZE_STENO_TESTS + (
+    ('S#', ('1',)),
+    ('A#', ('5',)),
+    ('0#', ('0',)),
+    ('2#', ('2',)),
+    ('6#', ('-6',)),
+    ('45#6', ('456',)),
+    ('4#6', ('4-6',)),
+    ('4#*6', ('4*6',)),
+    ('456#', ('456',)),
+    ('S#46', ('14-6',)),
 )
 
 @pytest.mark.parametrize('steno, expected', NORMALIZE_STENO_TESTS)
 def test_normalize_steno(english_stroke_class, steno, expected):
     normalize_steno = english_stroke_class._helper.normalize_steno
+    if inspect.isclass(expected):
+        with pytest.raises(expected):
+            normalize_steno(steno)
+        return
+    assert normalize_steno(steno) == expected
+
+NO_FREESTYLE_NORMALIZE_STENO_TESTS = COMMON_NORMALIZE_STENO_TESTS + (
+    ('S#', ValueError),
+    ('A#', ValueError),
+    ('0#', ValueError),
+    ('2#', ValueError),
+    ('6#', ValueError),
+    ('45#6', ValueError),
+    ('4#6', ValueError),
+    ('4#*6', ValueError),
+    ('456#', ValueError),
+    ('S#46', ValueError),
+)
+
+@pytest.mark.parametrize('steno, expected', NO_FREESTYLE_NORMALIZE_STENO_TESTS)
+def test_normalize_steno_no_feral_number_key(stroke_class, steno, expected):
+    stroke_class.setup(
+        '''
+        #
+        S- T- K- P- W- H- R-
+        A- O-
+        *
+        -E -U
+        -F -R -P -B -L -G -T -S -D -Z
+        '''.split(),
+        'A- O- * -E -U'.split(),
+        '#', {
+            'S-': '1-',
+            'T-': '2-',
+            'P-': '3-',
+            'H-': '4-',
+            'A-': '5-',
+            'O-': '0-',
+            '-F': '-6',
+            '-P': '-7',
+            '-L': '-8',
+            '-T': '-9',
+        },
+        False,
+    )
+    normalize_steno = stroke_class._helper.normalize_steno
     if inspect.isclass(expected):
         with pytest.raises(expected):
             normalize_steno(steno)

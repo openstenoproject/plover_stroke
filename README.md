@@ -73,6 +73,10 @@ sorted(map(Stroke, 'AOE ST-PB *Z # R-R'.split()))
 
 ### 1.1.0 [unreleased]
 
+* add `feral_number_key` support: when set to `True`, allow the number key
+  letter anywhere when parsing steno (e.g. `18#`,  `#18`, and `1#8` are all
+  valid and equivalent, as per the RTF/CRE spec).
+
 
 ### 1.0.1
 
